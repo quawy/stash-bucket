@@ -1,0 +1,38 @@
+name: Stash Bucket
+on:
+  repository_dispatch:
+    types: [release]
+  workflow_dispatch:
+jobs:
+  update:
+    name: Update
+    runs-on: windows-latest
+    steps:
+    - name: Check out
+      uses: actions/checkout@v2.4.0
+    - name: Setup cache
+      uses: actions/cache@v2.1.6
+      with:
+        path: ~\scoop
+        key: ${{ runner.os }}-scoop
+    - name: Install scoop
+      shell: pwsh
+      run: |
+        $shims = Join-Path (Resolve-Path ~).Path scoop\shims
+        $env:PATH += ";$shims"
+        
+        try {
+          scoop update
+        } catch {
+          iwr -useb get.scoop.sh | iex
+        }
+        
+        echo $shims >> $env:GITHUB_PATH
+    - name: Update manifests
+      shell: pwsh
+      run: |
+        bin\checkver -u stash
+        git config user.name github-actions[bot]
+        git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+        git commit -am "Update manifests"
+        git push
